@@ -6,11 +6,11 @@
 
 ## **Table of Contents**
 
-### **📜 Foreword**
-- The Petra Analogy: Isolated Mountain Defense
-- Philosophy: Complete Internal Isolation
-- Target Environment: Air-Gapped/Internal Network
-- Target Services: Internal-only, No External Internet
+### [ ]**📜 Foreword**
+- [ ] The Petra Analogy: Isolated Mountain Defense
+- [ ] Philosophy: Complete Internal Isolation
+- [ ] Target Environment: Air-Gapped/Internal Network
+- [ ] Target Services: Internal-only, No External Internet
 
 ### **🌍 General Principles**
 - Alpine Linux Minimalism Advantage
