@@ -7,6 +7,7 @@
 ## **Table of Contents**
 
 ### **📜 Foreword**
+- [Targeted System.](System.md)
 - The Petra Analogy: Isolated Mountain Defense
 - Philosophy: Complete Internal Isolation
 - Target Environment: Air-Gapped/Internal Network
