@@ -1,2 +1,11 @@
-# petra
-Inspired by the ancient city of Petra carved into Edom's mountains, this guide systematically fortifies Alpine Linux for public internet exposure. Each layer adds resilience like Petra's stone defenses, creating an impregnable public-facing host. 
+# **Project Pera: Alpine Linux Isolated Host Hardening Guide**
+
+*Inspired by Petra's timeless resilience carved into Edom's mountains, this guide transforms Alpine Linux into an impregnable fortress with strict internal-only networking.*
+
+---
+
+## **Table of Contents**
+
+### **📜 Foreword**
+- [Targeted System.](system.md)
+- The Petra Analogy: Isolated Mountain Defense

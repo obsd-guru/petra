@@ -1,0 +1,251 @@
+# Als root diese Datei erstellen:
+sudo tee /etc/profile.d/color-prompt.sh > /dev/null << 'EOF'
+#!/bin/sh
+# Farbiger Prompt für alle User
+
+# Nur bei interaktiven Shells
+case "$-" in
+    *i*)
+        # Farbcodes
+        RED='\033[1;31m'
+        GREEN='\033[1;32m'
+        BLUE='\033[1;34m'
+        RESET='\033[0m'
+        
+        # Prompt-Funktion
+        colored_prompt() {
+            local dir="$PWD"
+            # Home ersetzen
+            case "$dir" in
+                "$HOME") dir="~" ;;
+                "$HOME"/*) dir="~${dir#$HOME}" ;;
+            esac
+            
+            # Für root User andere Farbe
+            if [ $(id -u) -eq 0 ]; then
+                printf "${RED}%s${RESET}@${GREEN}%s${RESET}:${BLUE}%s${RESET}# " \
+                    "$(whoami)" "$(hostname -s)" "$dir"
+            else
+                printf "${RED}%s${RESET}@${GREEN}%s${RESET}:${BLUE}%s${RESET}$ " \
+                    "$(whoami)" "$(hostname -s)" "$dir"
+            fi
+        }
+        
+        export PS1='$(colored_prompt)'
+        ;;
+esac
+EOF
+
+# Ausführbar machen
+sudo chmod +x /etc/profile.d/color-prompt.sh
+
+
+#
+#
+#
+
+# Als root alle Home-Verzeichnisse auf 0700 setzen
+ find /home -mindepth 1 -maxdepth 1 -type d -exec chmod 0700 {} \;
+
+# Oder einzeln pro User
+ chmod 0700 /home/username
+
+
+#
+#
+#
+
+# Alle Homes sofort sichern:
+ find /home -maxdepth 1 -type d -user \* -exec chmod 0700 {} \; -exec chown {}:{} {} \;
+ chmod 0700 /root 2>/dev/null
+
+# Umask für neue Dateien setzen:
+echo "umask 0077" |  tee -a /etc/profile
+
+#
+#
+#
+#
+
+Das ist normal bei Alpine Linux! Alpine hat oft kein `/etc/skel` Verzeichnis von Haus aus. Hier die Lösung:
+
+## **1. `/etc/skel` in Alpine Linux**
+
+### **Prüfen, ob skel existiert:**
+```bash
+ls -la /etc/skel*
+```
+
+### **`/etc/skel` erstellen (wenn nicht vorhanden):**
+```bash
+# Skel-Verzeichnis erstellen
+sudo mkdir -p /etc/skel
+
+# Basis-Dateien hinzufügen (optional)
+sudo cp /etc/profile /etc/skel/.profile 2>/dev/null || true
+sudo cp /etc/ashrc /etc/skel/.ashrc 2>/dev/null || true
+
+# Berechtigungen setzen
+sudo chmod 0700 /etc/skel
+```
+
+## **2. Alpine-spezifische Lösung ohne /etc/skel**
+
+Alpine nutzt oft direkt `adduser` ohne skel. Die Home-Verzeichnisse werden mit den richtigen Berechtigungen erstellt:
+
+```bash
+# User mit Home-Verzeichnis erstellen
+sudo adduser -h /home/neueruser -s /bin/ash neueruser
+
+# Berechtigungen automatisch bei Erstellung setzen lassen
+```
+
+## **3. Alternative: `/etc/defaults/` nutzen**
+
+Alpine verwendet manchmal andere Konfiguration:
+```bash
+# Prüfen, welche User-Verwaltung Alpine verwendet
+which adduser
+which useradd
+
+# Alpine's adduser Konfiguration
+cat /etc/adduser.conf 2>/dev/null || echo "Keine adduser.conf gefunden"
+
+# Oft wird dies verwendet:
+cat /etc/default/useradd 2>/dev/null
+```
+
+## **4. Automatische Home-Verzeichnis-Erstellung konfigurieren**
+
+### **A) Mit `adduser` (Alpine Standard):**
+```bash
+# adduser Konfiguration prüfen/erstellen
+sudo tee /etc/adduser.conf << 'EOF'
+# Home-Verzeichnis Berechtigungen
+HOME_MODE 0700
+
+# Shell
+DEFAULT_SHELL /bin/ash
+
+# Skelett-Verzeichnis (wenn gewünscht)
+SKEL /etc/skel
+EOF
+```
+
+### **B) Mit `useradd` (falls verwendet):**
+```bash
+# useradd Defaults in /etc/login.defs prüfen
+sudo grep -i "umask\|home\|skel" /etc/login.defs
+
+# Umask für Home-Verzeichnisse setzen
+echo "HOME_MODE   0700" | sudo tee -a /etc/login.defs
+echo "UMASK       077" | sudo tee -a /etc/login.defs
+```
+
+## **5. Sicherstellen, dass neue Homes korrekt erstellt werden**
+
+```bash
+# Test-User erstellen und prüfen
+sudo adduser testuser
+sudo ls -ld /home/testuser
+# Sollte zeigen: drwx------ (0700)
+
+# Wenn nicht 0700, dann manuell setzen
+sudo chmod 0700 /home/testuser
+
+# Test-User wieder löschen
+sudo deluser --remove-home testuser
+```
+
+## **6. Einfache Lösung für bestehende Systeme**
+
+Da `/etc/skel` in Alpine oft fehlt, hier die pragmatische Lösung:
+
+```bash
+# 1. Nur bestehende Home-Verzeichnisse sichern
+sudo find /home -maxdepth 1 -type d -exec chmod 0700 {} \;
+
+# 2. Bei neuen Usern manuell setzen ODER Skript erstellen
+
+# 3. Post-Useradd Skript erstellen
+sudo mkdir -p /etc/local.d
+sudo tee /etc/local.d/fix-home-perms.start << 'EOF'
+#!/bin/sh
+# Fix Home-Verzeichnis-Berechtigungen nach User-Erstellung
+sleep 2  # Warten bis User erstellt ist
+find /home -maxdepth 1 -type d -exec chmod 0700 {} \; 2>/dev/null
+EOF
+
+sudo chmod +x /etc/local.d/fix-home-perms.start
+```
+
+## **7. Volle Alpine-spezifische Lösung**
+
+```bash
+#!/bin/sh
+# Alpine Home-Verzeichnis Sicherung
+
+# 1. Sicherstellen, dass /home existiert
+mkdir -p /home
+
+# 2. Alle bestehenden Homes sichern
+for dir in /home/* /root; do
+    [ -d "$dir" ] && chmod 0700 "$dir"
+done
+
+# 3. Für zukünftige User: /etc/skel erstellen wenn gewünscht
+if [ ! -d /etc/skel ]; then
+    mkdir -p /etc/skel
+    chmod 0700 /etc/skel
+    # Basis .profile für neue User
+    cat > /etc/skel/.profile << 'PROFILE'
+# User .profile
+umask 077
+export PS1='\u@\h:\w\$ '
+PROFILE
+fi
+
+# 4. Adduser konfigurieren
+cat >> /etc/adduser.conf 2>/dev/null << 'ADDUSER' || true
+HOME_MODE=0700
+DEFAULT_SHELL=/bin/ash
+SKEL=/etc/skel
+ADDUSER
+
+echo "Home-Verzeichnis-Sicherung konfiguriert"
+```
+
+## **8. Prüfen, was Alpine tatsächlich nutzt**
+
+```bash
+# Prüfen Sie Ihre aktuelle Alpine-Installation:
+cat /etc/alpine-release
+apk info | grep -i "user|adduser"
+
+# Typischerweise hat Alpine:
+# - busybox (enthält adduser)
+# - shadow (enthält useradd, usermod, etc.)
+```
+
+## **Empfehlung für Alpine:**
+
+Da Alpine minimal ist und oft kein `/etc/skel` hat:
+
+1. **Manuell Homes setzen:**
+   ```bash
+   sudo chmod 0700 /home/* 2>/dev/null
+   ```
+
+2. **Bei User-Erstellung darauf achten:**
+   ```bash
+   sudo adduser -h /home/neueruser -s /bin/ash neueruser
+   sudo chmod 0700 /home/neueruser  # Manuell nachträglich
+   ```
+
+3. **Cronjob für regelmäßige Prüfung:**
+   ```bash
+   echo "0 3 * * * root chmod 0700 /home/* 2>/dev/null" >> /etc/crontabs/root
+   /etc/init.d/cron restart
+   ```
+
+**Zusammenfassung:** In Alpine müssen Sie `/etc/skel` oft erst selbst erstellen oder direkt die Home-Verzeichnisse nach User-Erstellung mit `chmod 0700` sichern.
